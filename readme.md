@@ -15,6 +15,12 @@ PGPORT=5432
 AIRTABLE_API_KEY=
 ```
 
+# Get started
+
+`npm install`
+
+`node app.js`
+
 # Credit to
 
 * https://medium.com/@dannibla/connecting-nodejs-postgresql-f8967b9f5932
