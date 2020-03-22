@@ -1,6 +1,7 @@
 SELECT hfc_harvest.projects.name AS project_name,
 	hfc_harvest.projects.id AS project_id,
 	hfc_harvest.clients.name AS client_name,
+	hfc_harvest.clients.id AS client_id,
 	hfc_harvest.projects.created_at,
 	ROUND(CAST (SUM(te.total_cost) as numeric),2) AS total_cost,
 	ROUND(CAST (SUM(te.total_billing) as numeric),2) AS total_billing
@@ -14,5 +15,5 @@ FROM (
 	) AS te
 FULL JOIN hfc_harvest.projects ON projects.id = te.project_id
 JOIN hfc_harvest.clients ON projects.client_id = clients.id
-GROUP BY te.project_id, hfc_harvest.projects.name, hfc_harvest.clients.name, hfc_harvest.projects.created_at, hfc_harvest.projects.id
+GROUP BY te.project_id, hfc_harvest.projects.name, hfc_harvest.clients.name, hfc_harvest.projects.created_at, hfc_harvest.projects.id, hfc_harvest.clients.id
 ORDER BY hfc_harvest.projects.created_at DESC
