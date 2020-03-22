@@ -74,6 +74,14 @@ app.get('/', function (req, res, next) {
     });
 });
 
+function delay(t, val) {
+   return new Promise(function(resolve) {
+       setTimeout(function() {
+           resolve(val);
+       }, t);
+   });
+};
+
 
 function harvestDataRefresh() {
 
@@ -171,57 +179,64 @@ function harvestDataRefresh() {
   })
 };
 
-function updateAirtableRecords(){
-  console.log('Initiating Airtable Updates for '+airtableUpdates.length+ ' records...');
+async function updateAirtableRecords(){
+  if (airtableUpdates.length == 0) {
+    return
 
-  console.log('Preparing to chunk array for Updated Airtable Records');
-  var size = 10;
-  for (var i=0; i<airtableUpdates.length; i+=size) {
+    } else {
+      console.log('Initiating Airtable Updates for '+airtableUpdates.length+ ' records...');
 
-       airtableUpdatesChunked.push(airtableUpdates.slice(i,i+size));
-  }
-  console.log('Chunked array created with '+airtableUpdatesChunked.length+' chunks.');
+      console.log('Preparing to chunk array for Updated Airtable Records...');
+      var size = 10;
+      for (var i=0; i<airtableUpdates.length; i+=size) {
 
-  for (var i=0; i<airtableUpdatesChunked.length; i++) {
-    console.log('Preparing to update records for chunk '+ i+1 +' of '+airtableUpdatesChunked.length);
-
-    base('Projects 2').update(airtableUpdatesChunked[i], function(err, records) {
-      if (err) {
-        console.error(err);
-        return;
+           airtableUpdatesChunked.push(airtableUpdates.slice(i,i+size));
       }
-      records.forEach(function(record) {
-        console.log(record.get('project_id'));
-      });
-    });
+      console.log('Chunked array created with '+airtableUpdatesChunked.length+' chunks.');
 
-
-  }
-
+      for (var i=0; i<airtableUpdatesChunked.length; i++) {
+        console.log('Preparing to update records for chunk '+ (i+1) +' of '+airtableUpdatesChunked.length);
+          base('Projects 2').update(airtableUpdatesChunked[i], function(err, records) {
+            if (err) {
+              console.error(err);
+              return
+            }
+            records.forEach(function(record) {
+              console.log(record.get('project_id'));
+            });
+          })
+        await delay(200);
+      }
+    }
 };
 
 function createAirtableRecords() {
-  console.log('Initiating Creation of new Airtable Records for '+airtableCreates.length+ ' projects...');
+  if (airtableCreates.length == 0) {
+    console.log('No new records to create.');
+    return
+    } else {
+      console.log('Initiating Creation of new Airtable Records for '+airtableCreates.length+ ' projects...');
 
-  console.log('Preparing to chunk array for new Airtable Records');
-  var size = 10;
-  for (var i=0; i<airtableCreates.length; i+=size) {
+      console.log('Preparing to chunk array for new Airtable Records...');
+      var size = 10;
+      for (var i=0; i<airtableCreates.length; i+=size) {
 
-       airtableCreatesChunked.push(airtableCreates.slice(i,i+size));
-  }
-  console.log('Chunked array created with '+airtableCreatesChunked.length+' chunks.');
-
-
-  for (var i=0; i<airtableCreatesChunked.length; i++) {
-    console.log('Preparing to post new record for chunk '+ i+1 +' of '+airtableCreatesChunked.length);
-    base('Projects 2').create(airtableCreatesChunked[i], function(err, records) {
-      if (err) {
-        console.error(err);
-        return;
+           airtableCreatesChunked.push(airtableCreates.slice(i,i+size));
       }
-      records.forEach(function (record) {
-        console.log('project created in airtable with airtable id '+record.getId());
-      });
-    });
-  }
+      console.log('Chunked array created with '+airtableCreatesChunked.length+' chunks.');
+
+
+      for (var i=0; i<airtableCreatesChunked.length; i++) {
+        console.log('Preparing to post new record for chunk '+ (i+1) +' of '+airtableCreatesChunked.length);
+        base('Projects 2').create(airtableCreatesChunked[i], function(err, records) {
+          if (err) {
+            console.error(err);
+            return;
+          }
+          records.forEach(function (record) {
+            console.log('project created in airtable with airtable id '+record.getId());
+          });
+        });
+      }
+    }
 };
