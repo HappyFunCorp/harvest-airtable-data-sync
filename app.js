@@ -19,9 +19,7 @@ const client = new Client({
 
 var fs = require('fs');
 
-//
-client.connect();
-var app = express();
+// var app = express();
 // app.set('port', process.env.PORT || 4000);
 //
 // app.listen(4000, function () {
@@ -58,14 +56,22 @@ var harvestAirtableClientLookup = [];
 var airtableProjectIdsPresent = [];
 var airtableClientIdsPresent = [];
 
+updateAll();
 
-harvestProjectsDataRefresh();
-setTimeout(updateAirtableRecords,10000);
-setTimeout(createAirtableRecords,20000);
-setTimeout(harvestClientsDataRefresh,30000);
-setTimeout(updateClientAirtableRecords,40000);
-setTimeout(createClientAirtableRecords,50000);
+function updateAll() {
+  client.connect();
+  harvestProjectsDataRefresh();
+  setTimeout(updateAirtableRecords,10000);
+  setTimeout(createAirtableRecords,20000);
+  setTimeout(harvestClientsDataRefresh,30000);
+  setTimeout(updateClientAirtableRecords,40000);
+  setTimeout(createClientAirtableRecords,50000);
+  setTimeout(closeDbConnection,90000);
+}
 
+function closeDbConnection() {
+  client.end();
+}
 
 // Fetch Harvest projects data from postgres...
 // app.get('/', function (req, res, next) {
@@ -92,6 +98,7 @@ function delay(t, val) {
 
 function harvestProjectsDataRefresh() {
 
+  //open db connection
   //QUERY POSTGRES FOR HARVEST DATA
   client.query(harvestProjectsSQL, function (err, result) {
     if (err) {
@@ -254,12 +261,14 @@ async function createAirtableRecords() {
 };
 
 function harvestClientsDataRefresh() {
+  client.connect();
 
   //QUERY POSTGRES FOR HARVEST DATA
   client.query(harvestClientsSQL, function (err, result) {
     if (err) {
         console.log(err);
     }
+    client.end()
 
     //... and store harvest data from PG as object
     harvestClientsData = result.rows;
