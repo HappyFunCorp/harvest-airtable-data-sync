@@ -2,7 +2,7 @@
 
 Connects Harvest data stored in postgres and updates Airtable sheets for projects.
 
-Assumes you've used StitchData to house the Harvest data into pg.
+Assumes you've used StitchData to house the Harvest data into postgres.
 
 Requires a `.env` file with the following variables:
 
@@ -17,10 +17,8 @@ AIRTABLE_API_KEY=
 
 # Get started
 
+To install dependencies:
 `npm install`
 
+To run the script:
 `node app.js`
-
-# Credit to
-
-* https://medium.com/@dannibla/connecting-nodejs-postgresql-f8967b9f5932
