@@ -4,6 +4,14 @@ Connects Harvest data stored in postgres and updates Airtable sheets for Clients
 
 Assumes you've used StitchData to house the Harvest data into postgres.
 
+# What it  does
+
+* pulls in and stores Clients and Projects based on SQL queries
+* Updates specific fields for matching records for each table
+* Creates new records in each table if not found
+
+# Get started
+
 Requires a `.env` file with the following variables:
 
 ```
@@ -14,8 +22,6 @@ PGPASSWORD=
 PGPORT=5432
 AIRTABLE_API_KEY=
 ```
-
-# Get started
 
 To install dependencies:
 `npm install`
