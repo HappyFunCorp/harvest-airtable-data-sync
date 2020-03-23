@@ -1,6 +1,4 @@
 require('dotenv').config()
-
-const express = require('express');
 const Airtable = require('airtable');
 const { Client } = require('pg');
 var async = require("async");
@@ -19,17 +17,12 @@ const client = new Client({
 
 var fs = require('fs');
 
-// var app = express();
-// app.set('port', process.env.PORT || 4000);
-//
-// app.listen(4000, function () {
-//     console.log('Server is running.. on Port 4000');
-// });
-
 
 var harvestProjectsSQL = 'SELECT hfc_harvest.projects.name AS project_name, hfc_harvest.projects.id AS project_id, hfc_harvest.clients.name AS client_name, hfc_harvest.clients.id AS client_id, hfc_harvest.projects.created_at, ROUND(CAST(SUM(te.total_cost) as numeric),2) AS total_cost, ROUND(CAST (SUM(te.total_billing) as numeric),2) AS total_billing FROM ( SELECT hours*cost_rate AS total_cost, hours*billable_rate AS total_billing, project_id FROM hfc_harvest.time_entries) AS te FULL JOIN hfc_harvest.projects ON projects.id = te.project_id JOIN hfc_harvest.clients ON projects.client_id = clients.id GROUP BY te.project_id, hfc_harvest.projects.name, hfc_harvest.clients.name, hfc_harvest.projects.created_at, hfc_harvest.projects.id, hfc_harvest.clients.id ORDER BY hfc_harvest.projects.created_at DESC';
 
 var harvestClientsSQL = 'SELECT hfc_harvest.clients.name, hfc_harvest.clients.id AS client_id FROM hfc_harvest.clients ORDER BY hfc_harvest.clients.name ASC';
+
+//TODO: prob a cleaner way to  declare all this stuff.
 
 // harvest data from postgres
 var harvestProjectsData = {};
@@ -58,6 +51,7 @@ var airtableClientIdsPresent = [];
 
 updateAll();
 
+// TODO learn the right way to do the lifecycle stuff so that it happens in sequence...
 function updateAll() {
   client.connect();
   harvestProjectsDataRefresh();
@@ -73,20 +67,6 @@ function closeDbConnection() {
   client.end();
 }
 
-// Fetch Harvest projects data from postgres...
-// app.get('/', function (req, res, next) {
-//       client.query('SELECT hfc_harvest.projects.name AS project_name, hfc_harvest.projects.id AS project_id, hfc_harvest.clients.name AS client_name, hfc_harvest.clients.id AS client_id, hfc_harvest.projects.created_at, ROUND(CAST(SUM(te.total_cost) as numeric),2) AS total_cost, ROUND(CAST (SUM(te.total_billing) as numeric),2) AS total_billing FROM ( SELECT hours*cost_rate AS total_cost, hours*billable_rate AS total_billing, project_id FROM hfc_harvest.time_entries) AS te FULL JOIN hfc_harvest.projects ON projects.id = te.project_id JOIN hfc_harvest.clients ON projects.client_id = clients.id GROUP BY te.project_id, hfc_harvest.projects.name, hfc_harvest.clients.name, hfc_harvest.projects.created_at, hfc_harvest.projects.id, hfc_harvest.clients.id ORDER BY hfc_harvest.projects.created_at DESC', function (err, result) {
-//         if (err) {
-//             console.log(err);
-//             res.status(400).send(err);
-//         }
-//         res.status(200).send(result.rows);
-//
-//         //... and store harvest data from PG as object
-//         var harvestProjectsData = result.rows;
-//     });
-// });
-
 function delay(t, val) {
    return new Promise(function(resolve) {
        setTimeout(function() {
@@ -95,6 +75,8 @@ function delay(t, val) {
    });
 };
 
+
+//TODO: may be a way to share more code between the project and client processes
 
 function harvestProjectsDataRefresh() {
 
@@ -149,6 +131,10 @@ function harvestProjectsDataRefresh() {
                 console.log('project_id found in Airtable! Adding to update list');
 
                 var projectAirtableId = null;
+
+                // TODO: almost certainly a better way to write this so
+                // TODO: would be nice to only update values that need updating
+                //(e.g. check if airtable and harvest values match)
 
                 function lookupAirtableId(arr) {
                   for (var i = 0; i < arr.length; i++) {
@@ -222,6 +208,7 @@ async function updateAirtableRecords(){
               console.log(record.get('project_id'));
             });
           })
+        // Airtable API allows only 5 calls per second
         await delay(200);
       }
     }
@@ -237,7 +224,6 @@ async function createAirtableRecords() {
       console.log('Preparing to chunk array for new Airtable Records...');
       var size = 10;
       for (var i=0; i<airtableCreates.length; i+=size) {
-
            airtableCreatesChunked.push(airtableCreates.slice(i,i+size));
       }
       console.log('Chunked array created with '+airtableCreatesChunked.length+' chunks.');
