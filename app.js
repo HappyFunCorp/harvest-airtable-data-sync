@@ -18,7 +18,7 @@ const client = new Client({
 // var fs = require('fs');
 
 
-var harvestProjectsSQL = 'SELECT hfc_harvest.projects.name AS project_name, hfc_harvest.projects.id AS project_id, hfc_harvest.clients.name AS client_name, hfc_harvest.clients.id AS client_id, hfc_harvest.projects.created_at, ROUND(CAST(SUM(te.total_cost) as numeric),2) AS total_cost, ROUND(CAST (SUM(te.total_billing) as numeric),2) AS total_billing FROM ( SELECT hours*cost_rate AS total_cost, hours*billable_rate AS total_billing, project_id FROM hfc_harvest.time_entries) AS te FULL JOIN hfc_harvest.projects ON projects.id = te.project_id JOIN hfc_harvest.clients ON projects.client_id = clients.id GROUP BY te.project_id, hfc_harvest.projects.name, hfc_harvest.clients.name, hfc_harvest.projects.created_at, hfc_harvest.projects.id, hfc_harvest.clients.id ORDER BY hfc_harvest.projects.created_at DESC';
+var harvestProjectsSQL = 'SELECT hfc_harvest.projects.name AS project_name, hfc_harvest.projects.id AS project_id, hfc_harvest.projects.is_active AS is_active, hfc_harvest.clients.name AS client_name, hfc_harvest.clients.id AS client_id, hfc_harvest.projects.created_at, ROUND(CAST(SUM(te.total_cost) as numeric),2) AS total_cost, ROUND(CAST (SUM(te.total_billing) as numeric),2) AS total_billing FROM ( SELECT hours*cost_rate AS total_cost, hours*billable_rate AS total_billing, project_id FROM hfc_harvest.time_entries) AS te FULL JOIN hfc_harvest.projects ON projects.id = te.project_id JOIN hfc_harvest.clients ON projects.client_id = clients.id GROUP BY te.project_id, hfc_harvest.projects.name, hfc_harvest.clients.name, hfc_harvest.projects.created_at, hfc_harvest.projects.id, hfc_harvest.clients.id ORDER BY hfc_harvest.projects.created_at DESC';
 
 var harvestClientsSQL = 'SELECT hfc_harvest.clients.name, hfc_harvest.clients.id AS client_id FROM hfc_harvest.clients ORDER BY hfc_harvest.clients.name ASC';
 
@@ -141,8 +141,8 @@ async function harvestProjectsDataRefresh() {
                     for (var j = 0; j < arr1[i].length; j++) {
                       if (arr1[i][j] == row.project_id) {
                         projectAirtableId = arr1[i][j+1];
-                        console.log('Airtable id found for project!')
-                        console.log('project_id: '+row.project_id+', airtable id: '+projectAirtableId);
+                        // console.log('Airtable id found for project!')
+                        // console.log('project_id: '+row.project_id+', airtable id: '+projectAirtableId);
                       }
                     }
                   }
@@ -154,9 +154,9 @@ async function harvestProjectsDataRefresh() {
                         clientAirtableIdArray = [];
                         clientAirtableIdArray.push(clientAirtableId);
 
-                        console.log('Airtable id found for client in project!')
-                        console.log('client_id: '+row.client_id+', airtable id: '+clientAirtableId);
-                        console.log(clientAirtableIdArray);
+                      //   console.log('Airtable id found for client in project!')
+                      //   console.log('client_id: '+row.client_id+', airtable id: '+clientAirtableId);
+                      //   console.log(clientAirtableIdArray);
                       }
                     }
                   }
@@ -166,6 +166,7 @@ async function harvestProjectsDataRefresh() {
                     "fields": {
                       "Project Name": row.project_name,
                       "Client Name": [clientAirtableId],
+                      "Is Active?": row.is_active,
                       "client_id": String(row.client_id),
                       "total_cost": parseFloat(row.total_cost),
                       "total_billing": parseFloat(row.total_billing)
@@ -181,6 +182,7 @@ async function harvestProjectsDataRefresh() {
                     "project_id": String(row.project_id),
                     "client_id": String(row.client_id),
                     "Client Name": row.client_name,
+                    "Is Active?": row.is_active,
                     "Project Name": row.project_name,
                     "total_cost": parseFloat(row.total_cost),
                     "total_billing": parseFloat(row.total_billing)
