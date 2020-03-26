@@ -20,7 +20,7 @@ const client = new Client({
 
 var harvestProjectsSQL = 'SELECT hfc_harvest.projects.name AS project_name, hfc_harvest.projects.id AS project_id, hfc_harvest.projects.is_active AS is_active, hfc_harvest.clients.name AS client_name, hfc_harvest.clients.id AS client_id, hfc_harvest.projects.created_at, ROUND(CAST(SUM(te.total_cost) as numeric),2) AS total_cost, ROUND(CAST (SUM(te.total_billing) as numeric),2) AS total_billing FROM ( SELECT hours*cost_rate AS total_cost, hours*billable_rate AS total_billing, project_id FROM hfc_harvest.time_entries) AS te FULL JOIN hfc_harvest.projects ON projects.id = te.project_id JOIN hfc_harvest.clients ON projects.client_id = clients.id GROUP BY te.project_id, hfc_harvest.projects.name, hfc_harvest.clients.name, hfc_harvest.projects.created_at, hfc_harvest.projects.id, hfc_harvest.clients.id ORDER BY hfc_harvest.projects.created_at DESC';
 
-var harvestClientsSQL = 'SELECT hfc_harvest.clients.name, hfc_harvest.clients.id AS client_id FROM hfc_harvest.clients ORDER BY hfc_harvest.clients.name ASC';
+var harvestClientsSQL = 'SELECT hfc_harvest.clients.name, hfc_harvest.clients.id AS client_id, hfc_harvest.clients.is_active AS is_active FROM hfc_harvest.clients ORDER BY hfc_harvest.clients.name ASC';
 
 //TODO: prob a cleaner way to  declare all this stuff.
 
@@ -146,7 +146,7 @@ async function harvestProjectsDataRefresh() {
                       }
                     }
                   }
-                  //find airtable ID fo client
+                  //find airtable ID for client
                   for (var i = 0; i < arr2.length; i++) {
                     for (var j = 0; j < arr2[i].length; j++) {
                       if (arr2[i][j] == row.client_id) {
@@ -176,18 +176,31 @@ async function harvestProjectsDataRefresh() {
                 projectAirtableLookups(harvestAirtableLookup,harvestAirtableClientLookup);
 
               } else {
-                console.log('Project not found in Airtable. Adding to create list.');
-                airtableCreates.push({
-                  "fields": {
-                    "project_id": String(row.project_id),
-                    "client_id": String(row.client_id),
-                    "Client Name": row.client_name,
-                    "Is Active?": row.is_active,
-                    "Project Name": row.project_name,
-                    "total_cost": parseFloat(row.total_cost),
-                    "total_billing": parseFloat(row.total_billing)
+                function findClientId(arr2) {
+                //find airtable ID for client
+                  for (var i = 0; i < arr2.length; i++) {
+                    for (var j = 0; j < arr2[i].length; j++) {
+                      if (arr2[i][j] == row.client_id) {
+                        clientAirtableId = arr2[i][j+1];
+                        clientAirtableIdArray = [];
+                        clientAirtableIdArray.push(clientAirtableId);
+                      }
+                    }
                   }
-                })
+                  console.log('Project not found in Airtable. Adding to create list.');
+                  airtableCreates.push({
+                    "fields": {
+                      "project_id": String(row.project_id),
+                      "client_id": String(row.client_id),
+                      "Client Name": [clientAirtableId],
+                      "Is Active?": row.is_active,
+                      "Project Name": row.project_name,
+                      "total_cost": parseFloat(row.total_cost),
+                      "total_billing": parseFloat(row.total_billing)
+                    }
+                  })
+                }
+              findClientId(harvestAirtableClientLookup);
               }
             });
           }
@@ -323,7 +336,8 @@ function harvestClientsDataRefresh() {
                     "id": clientAirtableId,
                     "fields": {
                       "Name": row.name,
-                      "client_id": String(row.client_id)
+                      "client_id": String(row.client_id),
+                      "Is Active?": row.is_active,
                     }
                   });
                   return
@@ -337,7 +351,8 @@ function harvestClientsDataRefresh() {
                 airtableClientCreates.push({
                   "fields": {
                     "Name": row.name,
-                    "client_id": String(row.client_id)
+                    "client_id": String(row.client_id),
+                    "Is Active?": row.is_active,
                   }
                 })
               }
