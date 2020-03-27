@@ -54,12 +54,15 @@ updateAll();
 async function updateAll() {
   client.connect();
   harvestClientsDataRefresh();
-  setTimeout(updateClientAirtableRecords,10000);
-  setTimeout(createClientAirtableRecords,20000);
-  setTimeout(harvestProjectsDataRefresh,30000);
-  setTimeout(updateAirtableRecords,40000);
-  setTimeout(createAirtableRecords,50000);
-  setTimeout(closeDbConnection,60000);
+  await updateClientAirtableRecords();
+  await delay(10000, null);
+  await createAirtableRecords();
+  await delay(20000, null);
+  await harvestProjectsDataRefresh();
+  await delay(30000, null);
+  await updateAirtableRecords();
+  await delay(40000, null);
+  await closeDbConnection();
 }
 
 async function closeDbConnection() {
