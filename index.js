@@ -1,7 +1,6 @@
 require('dotenv').config();
 const Airtable = require('airtable');
 const { Client } = require('pg');
-var async = require("async");
 
 //setup airtable connection
 const base = new Airtable({
