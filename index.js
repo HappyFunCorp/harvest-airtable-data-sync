@@ -1,7 +1,6 @@
 require('dotenv').config();
 const Airtable = require('airtable');
 const { Client } = require('pg');
-var async = require("async");
 
 //setup airtable connection
 const base = new Airtable({
@@ -231,7 +230,7 @@ async function updateAirtableRecords(){
               return
             }
             records.forEach(function(record) {
-              console.log(record.get('project_id'));
+              console.log('new project added with id: ' + record.get('project_id'));
             });
           })
         // Airtable API allows only 5 calls per second
@@ -264,7 +263,7 @@ async function createAirtableRecords() {
             return;
           }
           records.forEach(function (record) {
-            console.log('project created in airtable with airtable id '+record.getId());
+            console.log('project ' + record.project_name + ' created in airtable with airtable id '+record.getId());
           });
         });
         await delay(200);
@@ -419,7 +418,7 @@ async function createClientAirtableRecords() {
             return;
           }
           records.forEach(function (record) {
-            console.log('client created in airtable with airtable id '+record.getId());
+            console.log('client ' + record.client_name + ' created in airtable with airtable id '+record.getId());
           });
         });
         await delay(200);
