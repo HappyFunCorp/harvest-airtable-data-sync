@@ -230,7 +230,7 @@ async function updateAirtableRecords(){
               return
             }
             records.forEach(function(record) {
-              console.log('new project added with id: ' + record.get('project_id'));
+              console.log('new project to update with id: ' + record.get('project_id'));
             });
           })
         // Airtable API allows only 5 calls per second

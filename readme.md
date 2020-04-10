@@ -37,4 +37,4 @@ To install dependencies:
 `npm install`
 
 To run the script:
-`node app.js`
+`node index.js`
