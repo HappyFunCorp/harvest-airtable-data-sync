@@ -52,14 +52,15 @@ updateAll();
 
 // TODO learn the right way to do the lifecycle stuff so that it happens in sequence...
 async function updateAll() {
-  client.connect();
-  harvestClientsDataRefresh();
-  setTimeout(updateClientAirtableRecords,10000);
-  setTimeout(createClientAirtableRecords,20000);
-  setTimeout(harvestProjectsDataRefresh,30000);
-  setTimeout(updateAirtableRecords,40000);
-  setTimeout(createAirtableRecords,50000);
-  setTimeout(closeDbConnection,60000);
+  await client.connect();
+  //harvestClientsDataRefresh();
+  const data = await harvestClientsDataRefresh();
+  await updateClientAirtableRecords(data);
+  await createClientAirtableRecords();
+  const updates = await harvestProjectsDataRefresh(); // result from table query isn't ready possibly because database closes early.
+  await updateAirtableRecords(updates);
+  await createAirtableRecords();
+  await closeDbConnection();
 }
 
 async function closeDbConnection() {
@@ -75,6 +76,118 @@ function delay(t, val) {
 };
 
 //TODO: may be a way to share more code between the project and client processes
+function page2(records, fetchNextPage) {
+  // This function (`page`) will get called for each page of records.
+
+  records.forEach(function(record) {
+    // console.log('Retrieved', record.get('project_id'));
+    harvestAirtableLookup.push([
+      record.get('project_id').toString(),
+      record.getId().toString(),
+    ]);
+    airtableProjectIdsPresent.push(record.get('project_id').toString());
+  });
+
+  // To fetch the next page of records, call `fetchNextPage`.
+  // If there are more records, `page` will get called again.
+  // If there are no more records, `done` will get called.
+  fetchNextPage();
+
+}
+
+async function done2(err) {
+  if (err) { console.error(err);
+     } else {
+      console.log(harvestAirtableLookup.length+' Airtable Projects Data Successfully Fetched!');
+      console.log('Updating or Creating Records...')
+
+      harvestProjectsData.forEach(function(row){
+
+        // console.log('Looking for existing Airtable entry for project_id: '+row.project_id);
+
+        // airtableProjectIdsPresent -- this is empty
+        if (airtableProjectIdsPresent.includes(row.project_id)) {
+          // console.log('project_id found in Airtable! Adding to update list');
+
+          var projectAirtableId = null;
+          var clientAirtableId = null;
+
+          // TODO: almost certainly a better way to write this so
+          // TODO: would be nice to only update values that need updating
+          //(e.g. check if airtable and harvest values match)
+          function projectAirtableLookups(arr1, arr2) {
+
+            // find airtable ID for project
+            for (var i = 0; i < arr1.length; i++) {
+              for (var j = 0; j < arr1[i].length; j++) {
+                if (arr1[i][j] == row.project_id) {
+                  projectAirtableId = arr1[i][j+1];
+                  // console.log('Airtable id found for project!')
+                  // console.log('project_id: '+row.project_id+', airtable id: '+projectAirtableId);
+                }
+              }
+            }
+            //find airtable ID for client
+            for (var i = 0; i < arr2.length; i++) {
+              for (var j = 0; j < arr2[i].length; j++) {
+                if (arr2[i][j] == row.client_id) {
+                  clientAirtableId = arr2[i][j+1];
+                  clientAirtableIdArray = [];
+                  clientAirtableIdArray.push(clientAirtableId);
+
+                //   console.log('Airtable id found for client in project!')
+                //   console.log('client_id: '+row.client_id+', airtable id: '+clientAirtableId);
+                //   console.log(clientAirtableIdArray);
+                }
+              }
+            }
+            //add project data to array for updates
+            airtableUpdates.push({
+              "id": projectAirtableId,
+              "fields": {
+                "Project Name": row.project_name,
+                "Client Name": [clientAirtableId],
+                "Is Active?": row.is_active,
+                "client_id": String(row.client_id),
+                "total_cost": parseFloat(row.total_cost),
+                "total_billing": parseFloat(row.total_billing)
+              }
+            });
+          }
+          projectAirtableLookups(harvestAirtableLookup,harvestAirtableClientLookup);
+
+        } else {
+          function findClientId(arr2) {
+          //find airtable ID for client
+            for (var i = 0; i < arr2.length; i++) {
+              for (var j = 0; j < arr2[i].length; j++) {
+                if (arr2[i][j] == row.client_id) {
+                  clientAirtableId = arr2[i][j+1];
+                  clientAirtableIdArray = [];
+                  clientAirtableIdArray.push(clientAirtableId);
+                }
+              }
+            }
+            console.log('Project not found in Airtable. Adding to create list.');
+            airtableCreates.push({
+              "fields": {
+                "project_id": String(row.project_id),
+                "client_id": String(row.client_id),
+                "Client Name": [clientAirtableId],
+                "Is Active?": row.is_active,
+                "Project Name": row.project_name,
+                "total_cost": parseFloat(row.total_cost),
+                "total_billing": parseFloat(row.total_billing)
+              }
+            });
+          }
+        findClientId(harvestAirtableClientLookup);
+        }
+      });
+    }
+  console.log('done2');
+  return airtableUpdates;
+}
 
 async function harvestProjectsDataRefresh() {
   //open db connection
@@ -89,136 +202,41 @@ async function harvestProjectsDataRefresh() {
     console.log('Successfully stored Harvest Project Data!');
 
 
-    //----
-    //GET AIRTABLE
-    //Get all the records already in Airtable and store locally
+  });
+  //----
+  //GET AIRTABLE
+  //Get all the records already in Airtable and store locally
 
-    console.log('Attempting to fetch Airtable Projects Data');
+  console.log('Attempting to fetch Airtable Projects Data');
 
-    base('Projects 2').select({
+  const prom = base('Projects 2').select({
     view: "Grid view"
-    }).eachPage(function page(records, fetchNextPage) {
-        // This function (`page`) will get called for each page of records.
+  }).eachPage(page2);
 
-        records.forEach(function(record) {
-            // console.log('Retrieved', record.get('project_id'));
-            harvestAirtableLookup.push([
-              record.get('project_id').toString(),
-              record.getId().toString(),
-            ]);
-            airtableProjectIdsPresent.push(record.get('project_id').toString());
-        });
+  const updates = prom.then(function(value){
+    const returned = done2(value);
+    //console.log(returned, 'this is inside');
+    return returned;
+  });
 
-        // To fetch the next page of records, call `fetchNextPage`.
-        // If there are more records, `page` will get called again.
-        // If there are no more records, `done` will get called.
-        fetchNextPage();
+  console.log(updates, 'this should be true as well');
+  return updates;
 
-    }, function done(err) {
-        if (err) { console.error(err);
-          return; } else {
-            console.log(harvestAirtableLookup.length+' Airtable Projects Data Successfully Fetched!');
-            console.log('Updating or Creating Records...')
 
-            harvestProjectsData.forEach(function(row){
-
-              // console.log('Looking for existing Airtable entry for project_id: '+row.project_id);
-
-              if (airtableProjectIdsPresent.includes(row.project_id)) {
-                // console.log('project_id found in Airtable! Adding to update list');
-
-                var projectAirtableId = null;
-                var clientAirtableId = null;
-
-                // TODO: almost certainly a better way to write this so
-                // TODO: would be nice to only update values that need updating
-                //(e.g. check if airtable and harvest values match)
-                async function projectAirtableLookups(arr1, arr2) {
-
-                  // find airtable ID for project
-                  for (var i = 0; i < arr1.length; i++) {
-                    for (var j = 0; j < arr1[i].length; j++) {
-                      if (arr1[i][j] == row.project_id) {
-                        projectAirtableId = arr1[i][j+1];
-                        // console.log('Airtable id found for project!')
-                        // console.log('project_id: '+row.project_id+', airtable id: '+projectAirtableId);
-                      }
-                    }
-                  }
-                  //find airtable ID for client
-                  for (var i = 0; i < arr2.length; i++) {
-                    for (var j = 0; j < arr2[i].length; j++) {
-                      if (arr2[i][j] == row.client_id) {
-                        clientAirtableId = arr2[i][j+1];
-                        clientAirtableIdArray = [];
-                        clientAirtableIdArray.push(clientAirtableId);
-
-                      //   console.log('Airtable id found for client in project!')
-                      //   console.log('client_id: '+row.client_id+', airtable id: '+clientAirtableId);
-                      //   console.log(clientAirtableIdArray);
-                      }
-                    }
-                  }
-                  //add project data to array for updates
-                  airtableUpdates.push({
-                    "id": projectAirtableId,
-                    "fields": {
-                      "Project Name": row.project_name,
-                      "Client Name": [clientAirtableId],
-                      "Is Active?": row.is_active,
-                      "client_id": String(row.client_id),
-                      "total_cost": parseFloat(row.total_cost),
-                      "total_billing": parseFloat(row.total_billing)
-                    }
-                  });
-                }
-                projectAirtableLookups(harvestAirtableLookup,harvestAirtableClientLookup);
-
-              } else {
-                function findClientId(arr2) {
-                //find airtable ID for client
-                  for (var i = 0; i < arr2.length; i++) {
-                    for (var j = 0; j < arr2[i].length; j++) {
-                      if (arr2[i][j] == row.client_id) {
-                        clientAirtableId = arr2[i][j+1];
-                        clientAirtableIdArray = [];
-                        clientAirtableIdArray.push(clientAirtableId);
-                      }
-                    }
-                  }
-                  console.log('Project not found in Airtable. Adding to create list.');
-                  airtableCreates.push({
-                    "fields": {
-                      "project_id": String(row.project_id),
-                      "client_id": String(row.client_id),
-                      "Client Name": [clientAirtableId],
-                      "Is Active?": row.is_active,
-                      "Project Name": row.project_name,
-                      "total_cost": parseFloat(row.total_cost),
-                      "total_billing": parseFloat(row.total_billing)
-                    }
-                  })
-                }
-              findClientId(harvestAirtableClientLookup);
-              }
-            });
-          }
-    });
-  })
 };
 
-async function updateAirtableRecords(){
-  if (airtableUpdates.length == 0) {
+async function updateAirtableRecords(updates){
+  if (updates.length == 0) {
     return
 
     } else {
-      console.log('Initiating Airtable Updates for '+airtableUpdates.length+ ' records...');
+      console.log('Initiating Airtable Updates for '+updates.length+ ' records...');
 
       console.log('Preparing to chunk array for Updated Airtable Records...');
       var size = 10;
       for (var i=0; i<airtableUpdates.length; i+=size) {
 
-           airtableUpdatesChunked.push(airtableUpdates.slice(i,i+size));
+           airtableUpdatesChunked.push(updates.slice(i,i+size));
       }
       console.log('Chunked array created with '+airtableUpdatesChunked.length+' chunks.');
 
@@ -242,7 +260,7 @@ async function updateAirtableRecords(){
 async function createAirtableRecords() {
   if (airtableCreates.length == 0) {
     console.log('No new Project records to create.');
-    return
+
     } else {
       console.log('Initiating Creation of new Airtable Records for '+airtableCreates.length+ ' projects...');
 
@@ -269,47 +287,28 @@ async function createAirtableRecords() {
         await delay(200);
       }
     }
+
 };
 
-function harvestClientsDataRefresh() {
+function page(records, fetchNextPage) {
+  // This function (`page`) will get called for each page of records.
 
-  //QUERY POSTGRES FOR HARVEST DATA
-  client.query(harvestClientsSQL, function (err, result) {
-    if (err) {
-        console.log(err);
-    }
+  records.forEach(function(record) {
+    // console.log('Retrieved', record.get('client_id'));
+    harvestAirtableClientLookup.push([
+      record.get('client_id').toString(),
+      record.getId().toString(),
+    ]);
+    airtableClientIdsPresent.push(record.get('client_id').toString());
+  });
 
-    //... and store harvest data from PG as object
-    harvestClientsData = result.rows;
-    console.log('Successfully stored Harvest Client Data!');
+  // To fetch the next page of records, call `fetchNextPage`.
+  // If there are more records, `page` will get called again.
+  // If there are no more records, `done` will get called.
+  fetchNextPage();
+}
 
-
-    //----
-    //GET AIRTABLE
-    //Get all the records already in Airtable and store locally
-
-    console.log('Attempting to fetch Airtable Client Data');
-
-    base('Clients 2').select({
-    view: "Grid view"
-    }).eachPage(function page(records, fetchNextPage) {
-        // This function (`page`) will get called for each page of records.
-
-        records.forEach(function(record) {
-            // console.log('Retrieved', record.get('client_id'));
-            harvestAirtableClientLookup.push([
-              record.get('client_id').toString(),
-              record.getId().toString(),
-            ]);
-            airtableClientIdsPresent.push(record.get('client_id').toString());
-        });
-
-        // To fetch the next page of records, call `fetchNextPage`.
-        // If there are more records, `page` will get called again.
-        // If there are no more records, `done` will get called.
-        fetchNextPage();
-
-    }, function done(err) {
+async function done(err) {
         if (err) { console.error(err);
           return; } else {
             console.log(harvestAirtableClientLookup.length+' Airtable Clients Data Successfully Fetched!');
@@ -339,7 +338,6 @@ function harvestClientsDataRefresh() {
                       "Is Active?": row.is_active,
                     }
                   });
-                  return
                 }
 
                 lookupAirtableId(harvestAirtableClientLookup);
@@ -353,28 +351,60 @@ function harvestClientsDataRefresh() {
                     "client_id": String(row.client_id),
                     "Is Active?": row.is_active,
                   }
-                })
+                });
               }
 
             });
           }
-    });
-  })
+
+  return airtableClientUpdates;
 };
 
-async function updateClientAirtableRecords(){
-  if (airtableClientUpdates.length == 0) {
+async function harvestClientsDataRefresh() {
+  //QUERY POSTGRES FOR HARVEST DATA
+  client.query(harvestClientsSQL, function (err, result) {
+    if (err) {
+        console.log(err);
+    }
+
+    //... and store harvest data from PG as object
+    harvestClientsData = result.rows;
+    console.log('Successfully stored Harvest Client Data!');
+
+
+  });
+
+  //----
+  //GET AIRTABLE
+  //Get all the records already in Airtable and store locally
+
+  console.log('Attempting to fetch Airtable Client Data');
+
+  const info = base('Clients 2').select({
+    view: "Grid view"
+  }).eachPage(page);
+
+  const processed_data = info.then(function(value){
+    return done(value);
+  });
+
+  return processed_data;
+
+};
+
+async function updateClientAirtableRecords(d){
+  if (d.length == 0) {
     console.log('No Client records to update.');
     return
 
     } else {
-      console.log('Initiating Airtable Updates for '+airtableClientUpdates.length+ ' client records...');
+      console.log('Initiating Airtable Updates for '+d.length+ ' client records...');
 
       console.log('Preparing to chunk array for Updated Airtable Client Records...');
       var size = 10;
-      for (var i=0; i<airtableClientUpdates.length; i+=size) {
+      for (var i=0; i<d.length; i+=size) {
 
-           airtableClientUpdatesChunked.push(airtableClientUpdates.slice(i,i+size));
+           airtableClientUpdatesChunked.push(d.slice(i,i+size));
       }
       console.log('Chunked array created with '+airtableClientUpdatesChunked.length+' chunks.');
 
@@ -389,7 +419,7 @@ async function updateClientAirtableRecords(){
               console.log(record.get('client_id'));
             });
           })
-        await delay(200);
+        setTimeout(function(){console.log('avoiding rate limit')}, 200)
       }
     }
 };
