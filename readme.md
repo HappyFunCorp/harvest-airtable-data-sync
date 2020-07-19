@@ -2,7 +2,7 @@
 
 Connects Harvest data stored in postgres and updates Airtable sheets for Clients and Projects.
 
-Assumes you've used StitchData to house the Harvest data into postgres.
+Assumes you've used StitchData to import the Harvest data into a postgres db.
 
 # What it  does
 
